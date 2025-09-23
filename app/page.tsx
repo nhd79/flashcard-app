@@ -6,10 +6,12 @@ import { CardManager } from "@/components/card-manager"
 import { ListManager, type CardList, type FlashCardData } from "@/components/list-manager"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { Button } from "@/components/ui/button"
-import { Settings } from "lucide-react"
+import { Settings, LogOut, User } from "lucide-react"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { useSyncManager } from "@/hooks/use-sync-manager"
 import { SyncStatus } from "@/components/sync-status"
+import { AuthModal } from "@/components/auth-modal"
+import { useAuth } from "@/hooks/use-auth"
 
 const initialCards: FlashCardData[] = [
   {
@@ -75,8 +77,10 @@ export default function Home() {
   const [currentList, setCurrentList] = useState<CardList | null>(null)
   const [showCardManager, setShowCardManager] = useState(false)
   const [currentView, setCurrentView] = useState<"lists" | "study" | "manage">("lists")
+  const [showAuthModal, setShowAuthModal] = useState(false)
 
   const { syncFromCloud } = useSyncManager()
+  const { user, loading, signOut } = useAuth()
 
   useEffect(() => {
     if (lists.length === 0) {
@@ -158,8 +162,44 @@ export default function Home() {
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-6">
           <div className="text-center space-y-2">
-            <h1 className="text-3xl font-bold text-card-foreground">Chinese Flashcards</h1>
-            <p className="text-muted-foreground">Made by Yêu ơi ❤️</p>
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <h1 className="text-3xl font-bold text-card-foreground">Chinese Flashcards</h1>
+                <p className="text-muted-foreground">Made by Yêu ơi ❤️</p>
+              </div>
+              
+              {/* User Menu */}
+              <div className="flex items-center gap-2">
+                {loading ? (
+                  <div className="animate-pulse bg-muted rounded w-8 h-8" />
+                ) : user ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground hidden sm:inline">
+                      {user.email}
+                    </span>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={signOut}
+                      className="gap-2"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      <span className="hidden sm:inline">Sign Out</span>
+                    </Button>
+                  </div>
+                ) : (
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    onClick={() => setShowAuthModal(true)}
+                    className="gap-2"
+                  >
+                    <User className="h-4 w-4" />
+                    <span className="hidden sm:inline">Sign In</span>
+                  </Button>
+                )}
+              </div>
+            </div>
             <div className="flex justify-center">
               <SyncStatus />
             </div>
@@ -204,6 +244,17 @@ export default function Home() {
           </div>
         </div>
       </div>
+      
+      {/* Authentication Modal */}
+      <AuthModal 
+        isOpen={showAuthModal} 
+        onClose={() => setShowAuthModal(false)} 
+        onAuthSuccess={() => {
+          setShowAuthModal(false)
+          // Trigger sync from cloud when user signs in
+          syncFromCloud()
+        }}
+      />
     </main>
   )
 }

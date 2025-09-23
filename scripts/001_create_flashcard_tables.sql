@@ -1,3 +1,17 @@
+-- Drop existing tables and policies (if they exist)
+DROP POLICY IF EXISTS "Users can delete their own cards" ON public.flashcards;
+DROP POLICY IF EXISTS "Users can update their own cards" ON public.flashcards;
+DROP POLICY IF EXISTS "Users can insert their own cards" ON public.flashcards;
+DROP POLICY IF EXISTS "Users can view their own cards" ON public.flashcards;
+
+DROP POLICY IF EXISTS "Users can delete their own lists" ON public.flashcard_lists;
+DROP POLICY IF EXISTS "Users can update their own lists" ON public.flashcard_lists;
+DROP POLICY IF EXISTS "Users can insert their own lists" ON public.flashcard_lists;
+DROP POLICY IF EXISTS "Users can view their own lists" ON public.flashcard_lists;
+
+DROP TABLE IF EXISTS public.flashcards CASCADE;
+DROP TABLE IF EXISTS public.flashcard_lists CASCADE;
+
 -- Create flashcard lists table
 CREATE TABLE IF NOT EXISTS public.flashcard_lists (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
