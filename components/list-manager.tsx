@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, Trash2, BookOpen, Edit2, Settings } from "lucide-react"
+import { Plus, BookOpen, Edit2, Settings } from "lucide-react"
 
 export interface FlashCardData {
   id: number
@@ -45,13 +45,6 @@ export function ListManager({ lists, onListsChange, onSelectList, onManageCards 
 
     onListsChange([...lists, newList])
     setNewListName("")
-  }
-
-  const handleDeleteList = (listId: number) => {
-    // Don't allow deleting the default list (first list)
-    if (lists.find((list) => list.id === listId)?.name === "Danh sách mặc định") return
-
-    onListsChange(lists.filter((list) => list.id !== listId))
   }
 
   const handleEditList = (listId: number, newName: string) => {
@@ -132,19 +125,6 @@ export function ListManager({ lists, onListsChange, onSelectList, onManageCards 
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>
-                      {list.name !== "Danh sách mặc định" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteList(list.id)
-                          }}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
                     </div>
                   </>
                 )}
