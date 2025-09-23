@@ -73,7 +73,7 @@ const initialCards: FlashCardData[] = [
 ]
 
 export default function Home() {
-  const [lists, setLists] = useLocalStorage<CardList[]>("flashcard-lists", [])
+  const [lists, setLists, isListsInitialized] = useLocalStorage<CardList[]>("flashcard-lists", [])
   const [currentList, setCurrentList] = useState<CardList | null>(null)
   const [showCardManager, setShowCardManager] = useState(false)
   const [currentView, setCurrentView] = useState<"lists" | "study" | "manage">("lists")
@@ -83,6 +83,8 @@ export default function Home() {
   const { user, loading, signOut } = useAuth()
 
   useEffect(() => {
+    if (!isListsInitialized) return
+    
     if (lists.length === 0) {
       const defaultList: CardList = {
         id: 1,
@@ -108,7 +110,7 @@ export default function Home() {
         setLists(updatedLists)
       }
     }
-  }, [lists.length, setLists])
+  }, [lists.length, setLists, isListsInitialized])
 
   // Users can manually sync using the sync button
 
@@ -159,47 +161,48 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card">
+      <header className="border-b border-border bg-card relative">
         <div className="container mx-auto px-4 py-6">
-          <div className="text-center space-y-2">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold text-card-foreground">Chinese Flashcards</h1>
-                <p className="text-muted-foreground">Made by Yêu ơi ❤️</p>
-              </div>
-              
-              {/* User Menu */}
-              <div className="flex items-center gap-2">
-                {loading ? (
-                  <div className="animate-pulse bg-muted rounded w-8 h-8" />
-                ) : user ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground hidden sm:inline">
-                      {user.email}
-                    </span>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={signOut}
-                      className="gap-2"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      <span className="hidden sm:inline">Sign Out</span>
-                    </Button>
-                  </div>
-                ) : (
-                  <Button 
-                    variant="default" 
+          <div className="space-y-4">
+            {/* Title - Centered */}
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-card-foreground">Chinese Flashcards</h1>
+              <p className="text-muted-foreground">Made by Yêu ơi ❤️</p>
+            </div>
+            
+            {/* User Menu - Top Right Corner */}
+            <div className="absolute top-4 right-4">
+              {loading ? (
+                <div className="animate-pulse bg-muted rounded w-8 h-8" />
+              ) : user ? (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-muted-foreground hidden sm:inline">
+                    {user.email}
+                  </span>
+                  <Button
+                    variant="ghost"
                     size="sm"
-                    onClick={() => setShowAuthModal(true)}
+                    onClick={signOut}
                     className="gap-2"
                   >
-                    <User className="h-4 w-4" />
-                    <span className="hidden sm:inline">Sign In</span>
+                    <LogOut className="h-4 w-4" />
+                    <span className="hidden sm:inline">Sign Out</span>
                   </Button>
-                )}
-              </div>
+                </div>
+              ) : (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => setShowAuthModal(true)}
+                  className="gap-2"
+                >
+                  <User className="h-4 w-4" />
+                  <span className="hidden sm:inline">Sign In</span>
+                </Button>
+              )}
             </div>
+            
+            {/* Sync Status - Centered */}
             <div className="flex justify-center">
               <SyncStatus />
             </div>
@@ -211,44 +214,52 @@ export default function Home() {
       <div className="container mx-auto px-4 py-12">
         <div className="flex justify-center">
           <div className="w-full max-w-4xl">
-            {currentView !== "lists" && <Breadcrumb items={getBreadcrumbItems()} />}
-
-            {currentView === "lists" ? (
-              <ListManager
-                lists={lists}
-                onListsChange={handleListsChange}
-                onSelectList={handleSelectList}
-                onManageCards={handleManageCards}
-              />
-            ) : currentView === "manage" && currentList ? (
-              <CardManager
-                currentList={currentList}
-                onListChange={handleListChange}
-                onClose={() => setCurrentView("lists")}
-              />
-            ) : currentList ? (
-              <div className="space-y-6">
-                <div className="flex justify-center gap-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => setCurrentView("manage")}
-                    className="flex items-center gap-2"
-                  >
-                    <Settings className="h-4 w-4" />
-                    Quản lý thẻ
-                  </Button>
-                </div>
-                <FlashCardDeck cards={currentList.cards} mode="vietnamese" />
+            {!isListsInitialized ? (
+              <div className="flex justify-center items-center min-h-[200px]">
+                <div className="animate-pulse text-muted-foreground">Loading...</div>
               </div>
-            ) : null}
+            ) : (
+              <>
+                {currentView !== "lists" && <Breadcrumb items={getBreadcrumbItems()} />}
+
+                {currentView === "lists" ? (
+                  <ListManager
+                    lists={lists}
+                    onListsChange={handleListsChange}
+                    onSelectList={handleSelectList}
+                    onManageCards={handleManageCards}
+                  />
+                ) : currentView === "manage" && currentList ? (
+                  <CardManager
+                    currentList={currentList}
+                    onListChange={handleListChange}
+                    onClose={() => setCurrentView("lists")}
+                  />
+                ) : currentList ? (
+                  <div className="space-y-6">
+                    <div className="flex justify-center gap-4">
+                      <Button
+                        variant="outline"
+                        onClick={() => setCurrentView("manage")}
+                        className="flex items-center gap-2"
+                      >
+                        <Settings className="h-4 w-4" />
+                        Quản lý thẻ
+                      </Button>
+                    </div>
+                    <FlashCardDeck cards={currentList.cards} mode="vietnamese" />
+                  </div>
+                ) : null}
+              </>
+            )}
           </div>
         </div>
       </div>
-      
+
       {/* Authentication Modal */}
-      <AuthModal 
-        isOpen={showAuthModal} 
-        onClose={() => setShowAuthModal(false)} 
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
         onAuthSuccess={() => {
           setShowAuthModal(false)
           // Trigger sync from cloud when user signs in

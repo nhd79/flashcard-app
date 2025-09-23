@@ -16,7 +16,15 @@ export function SyncStatus() {
     setMounted(true)
   }, [])
 
-  if (!mounted) return null
+  // Don't render anything until mounted to prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="flex items-center gap-2 text-sm">
+        <div className="w-16 h-5 bg-muted animate-pulse rounded" />
+        <div className="w-12 h-4 bg-muted animate-pulse rounded" />
+      </div>
+    )
+  }
 
   const handleSync = async () => {
     if (user) {
@@ -43,12 +51,6 @@ export function SyncStatus() {
 
   return (
     <div className="flex items-center gap-2 text-sm">
-      {/* Authentication Status */}
-      <Badge variant={authStatus.variant} className="gap-1">
-        <AuthIcon className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
-        {authStatus.text}
-      </Badge>
-
       {/* Online Status */}
       <Badge variant={onlineStatus.variant} className="gap-1">
         <OnlineIcon className={`h-3 w-3 ${syncStatus.isSyncing ? "animate-spin" : ""}`} />

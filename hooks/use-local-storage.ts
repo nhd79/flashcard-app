@@ -1,39 +1,48 @@
-"use client"
+"use client";
 
-import { useState } from "react"
+import { useState, useEffect } from "react";
 
 function dateReviver(key: string, value: any) {
   if (key === "createdAt" && typeof value === "string") {
-    return new Date(value)
+    return new Date(value);
   }
-  return value
+  return value;
 }
 
 export function useLocalStorage<T>(key: string, initialValue: T) {
-  const [storedValue, setStoredValue] = useState<T>(() => {
+  const [storedValue, setStoredValue] = useState<T>(initialValue);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
-      return initialValue
+      setIsInitialized(true);
+      return;
     }
+
     try {
-      const item = window.localStorage.getItem(key)
-      return item ? JSON.parse(item, dateReviver) : initialValue
+      const item = window.localStorage.getItem(key);
+      const value = item ? JSON.parse(item, dateReviver) : initialValue;
+      setStoredValue(value);
     } catch (error) {
-      console.error(`Error reading localStorage key "${key}":`, error)
-      return initialValue
+      console.error("Error reading localStorage key:", error);
+      setStoredValue(initialValue);
+    } finally {
+      setIsInitialized(true);
     }
-  })
+  }, [key, initialValue]);
 
   const setValue = (value: T | ((val: T) => T)) => {
     try {
-      const valueToStore = value instanceof Function ? value(storedValue) : value
-      setStoredValue(valueToStore)
+      const valueToStore =
+        value instanceof Function ? value(storedValue) : value;
+      setStoredValue(valueToStore);
       if (typeof window !== "undefined") {
-        window.localStorage.setItem(key, JSON.stringify(valueToStore))
+        window.localStorage.setItem(key, JSON.stringify(valueToStore));
       }
     } catch (error) {
-      console.error(`Error setting localStorage key "${key}":`, error)
+      console.error("Error setting localStorage key:", error);
     }
-  }
+  };
 
-  return [storedValue, setValue] as const
+  return [storedValue, setValue, isInitialized] as const;
 }
