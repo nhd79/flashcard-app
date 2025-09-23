@@ -130,13 +130,13 @@ export function useSyncManager() {
   }, [syncStatus.isOnline, supabase]);
 
   const syncFromCloud = useCallback(async () => {
-    if (!syncStatus.isOnline || typeof window === "undefined") return;
+    if (!syncStatus.isOnline || typeof window === "undefined") return null;
 
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) return null;
 
       const { data: cloudLists, error: listsError } = await supabase
         .from("flashcard_lists")
@@ -145,6 +145,7 @@ export function useSyncManager() {
           id,
           name,
           created_at,
+          updated_at,
           flashcards (
             id,
             front,
@@ -157,63 +158,180 @@ export function useSyncManager() {
 
       if (listsError) {
         console.error("[Sync] Error fetching from cloud:", listsError);
-        return;
+        return null;
       }
 
       const localData = localStorage.getItem("flashcard-lists");
-      if (!localData || localData === "[]") {
-        const localFormat =
-          cloudLists?.map((list) => ({
-            id: list.id,
-            name: list.name,
-            cards:
-              list.flashcards?.map((card) => {
-                try {
-                  const backData = JSON.parse(card.back);
-                  return {
-                    id: card.id,
-                    vietnamese: card.front,
-                    chinese: backData.chinese || "",
-                    pinyin: backData.pinyin || "",
-                    sentence: backData.sentence || "",
-                  };
-                } catch {
-                  // Fallback for old format
-                  return {
-                    id: card.id,
-                    vietnamese: card.front,
-                    chinese: card.back.split(" (")[0] || "",
-                    pinyin: card.back.match(/\(([^)]+)\)/)?.[1] || "",
-                    sentence: "",
-                  };
-                }
-              }) || [],
-            createdAt: new Date(list.created_at),
-          })) || [];
+      const existingLocalLists = localData ? JSON.parse(localData) : [];
 
-        localStorage.setItem("flashcard-lists", JSON.stringify(localFormat));
-        console.log("[Sync] Successfully synced from cloud");
+      const cloudFormat =
+        cloudLists?.map((list) => ({
+          id: list.id,
+          name: list.name,
+          cards:
+            list.flashcards?.map((card) => {
+              try {
+                const backData = JSON.parse(card.back);
+                return {
+                  id: card.id,
+                  vietnamese: card.front,
+                  chinese: backData.chinese || "",
+                  pinyin: backData.pinyin || "",
+                  sentence: backData.sentence || "",
+                };
+              } catch {
+                // Fallback for old format
+                return {
+                  id: card.id,
+                  vietnamese: card.front,
+                  chinese: card.back.split(" (")[0] || "",
+                  pinyin: card.back.match(/\(([^)]+)\)/)?.[1] || "",
+                  sentence: "",
+                };
+              }
+            }) || [],
+          createdAt: new Date(list.created_at),
+        })) || [];
+
+      // Only update localStorage if there's no local data (initial sync)
+      // or if explicitly requested (force sync)
+      if (existingLocalLists.length === 0) {
+        localStorage.setItem("flashcard-lists", JSON.stringify(cloudFormat));
+
+        // Dispatch custom event to notify other components
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("localStorageChange", {
+              detail: { key: "flashcard-lists", value: cloudFormat },
+            })
+          );
+        }
+
+        console.log("[Sync] Initial sync from cloud completed");
+      } else {
+        console.log("[Sync] Cloud data fetched but local data preserved");
       }
 
       setSyncStatus((prev) => ({
         ...prev,
         lastSyncTime: new Date(),
       }));
+
+      // Return the cloud data for comparison/merging
+      return cloudFormat;
     } catch (error) {
       console.error("[Sync] Error syncing from cloud:", error);
+      return null;
     }
   }, [syncStatus.isOnline, supabase]);
 
   const manualSync = useCallback(async () => {
-    if (!syncStatus.isOnline) return;
-    await syncFromCloud();
+    if (!syncStatus.isOnline) return null;
+
+    // First, sync local changes to cloud to preserve them
     await syncToCloud();
+
+    // Then, fetch any new cloud data (but don't overwrite local)
+    const cloudData = await syncFromCloud();
+
+    console.log("[Sync] Manual sync completed");
+    return cloudData;
   }, [syncFromCloud, syncToCloud, syncStatus.isOnline]);
+
+  const forceSyncFromCloud = useCallback(async () => {
+    if (!syncStatus.isOnline || typeof window === "undefined") return null;
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data: cloudLists, error: listsError } = await supabase
+        .from("flashcard_lists")
+        .select(
+          `
+          id,
+          name,
+          created_at,
+          updated_at,
+          flashcards (
+            id,
+            front,
+            back,
+            created_at
+          )
+        `
+        )
+        .eq("user_id", user.id);
+
+      if (listsError) {
+        console.error("[Sync] Error fetching from cloud:", listsError);
+        return null;
+      }
+
+      const cloudFormat =
+        cloudLists?.map((list) => ({
+          id: list.id,
+          name: list.name,
+          cards:
+            list.flashcards?.map((card) => {
+              try {
+                const backData = JSON.parse(card.back);
+                return {
+                  id: card.id,
+                  vietnamese: card.front,
+                  chinese: backData.chinese || "",
+                  pinyin: backData.pinyin || "",
+                  sentence: backData.sentence || "",
+                };
+              } catch {
+                // Fallback for old format
+                return {
+                  id: card.id,
+                  vietnamese: card.front,
+                  chinese: card.back.split(" (")[0] || "",
+                  pinyin: card.back.match(/\(([^)]+)\)/)?.[1] || "",
+                  sentence: "",
+                };
+              }
+            }) || [],
+          createdAt: new Date(list.created_at),
+        })) || [];
+
+      // Force overwrite local data with cloud data
+      localStorage.setItem("flashcard-lists", JSON.stringify(cloudFormat));
+
+      // Dispatch custom event to notify other components
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("localStorageChange", {
+            detail: { key: "flashcard-lists", value: cloudFormat },
+          })
+        );
+      }
+
+      console.log(
+        "[Sync] Force sync from cloud completed - local data overwritten"
+      );
+
+      setSyncStatus((prev) => ({
+        ...prev,
+        lastSyncTime: new Date(),
+      }));
+
+      return cloudFormat;
+    } catch (error) {
+      console.error("[Sync] Error force syncing from cloud:", error);
+      return null;
+    }
+  }, [syncStatus.isOnline, supabase]);
 
   return {
     syncStatus,
     syncToCloud,
     syncFromCloud,
+    forceSyncFromCloud,
     manualSync,
   };
 }

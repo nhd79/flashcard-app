@@ -79,7 +79,7 @@ export default function Home() {
   const [currentView, setCurrentView] = useState<"lists" | "study" | "manage">("lists")
   const [showAuthModal, setShowAuthModal] = useState(false)
 
-  const { syncFromCloud } = useSyncManager()
+  const { forceSyncFromCloud } = useSyncManager()
   const { user, loading, signOut } = useAuth()
 
   useEffect(() => {
@@ -262,8 +262,9 @@ export default function Home() {
         onClose={() => setShowAuthModal(false)}
         onAuthSuccess={() => {
           setShowAuthModal(false)
-          // Trigger sync from cloud when user signs in
-          syncFromCloud()
+          // Trigger initial sync from cloud when user signs in
+          // This will overwrite local data since it's the first sync after login
+          forceSyncFromCloud()
         }}
       />
     </main>

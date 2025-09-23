@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { useState, useEffect } from "react"
 
 export function SyncStatus() {
-  const { syncStatus, syncToCloud, syncFromCloud } = useSyncManager()
+  const { syncStatus, manualSync } = useSyncManager()
   const { user, loading } = useAuth()
   const [mounted, setMounted] = useState(false)
 
@@ -28,7 +28,7 @@ export function SyncStatus() {
 
   const handleSync = async () => {
     if (user) {
-      await Promise.all([syncToCloud(), syncFromCloud()])
+      await manualSync()
     }
   }
 
