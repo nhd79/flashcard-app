@@ -117,30 +117,6 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 - Edit existing cards with modal dialogs
 - Organize cards into themed lists
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Built with love for language learning
-- Special thanks to the Chinese language learning community
-- Made by Anh Yêu ❤️
-
-## 📧 Contact
-
-If you have any questions or suggestions, feel free to reach out!
-
 ---
 
 **Happy Learning! 学习愉快！**

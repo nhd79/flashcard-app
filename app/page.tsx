@@ -159,7 +159,7 @@ export default function Home() {
         <div className="container mx-auto px-4 py-6">
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold text-card-foreground">Chinese Flashcards</h1>
-            <p className="text-muted-foreground">Made by Anh Yêu ❤️</p>
+            <p className="text-muted-foreground">Made by Yêu ơi ❤️</p>
             <div className="flex justify-center">
               <SyncStatus />
             </div>

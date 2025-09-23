@@ -139,11 +139,6 @@ export function FlashCard({ vietnamese, chinese, pinyin, sentence, mode, classNa
                 <p className="text-3xl font-medium text-card-foreground leading-relaxed text-balance">
                   {chinese}
                 </p>
-                {pinyin && (
-                  <p className="text-lg text-muted-foreground font-mono tracking-wide">
-                    {pinyin}
-                  </p>
-                )}
                 {sentence && (
                   <p className="text-base text-muted-foreground leading-relaxed text-balance">
                     {sentence}
@@ -153,12 +148,14 @@ export function FlashCard({ vietnamese, chinese, pinyin, sentence, mode, classNa
             </div>
           ) : (
             <div className="space-y-3">
-              <p className="text-2xl font-medium text-card-foreground leading-relaxed text-balance">
-                {backContent.main}
-              </p>
-              {backContent.sub && (
-                <p className="text-lg text-muted-foreground font-mono tracking-wide">{backContent.sub}</p>
+              {pinyin && (
+                <p className="text-2xl font-medium font-mono text-card-foreground leading-relaxed text-balance">
+                  {pinyin}
+                </p>
               )}
+              <p className="text-lg text-muted-foreground tracking-wide">
+                {vietnamese}
+              </p>
             </div>
           )}
         </div>
