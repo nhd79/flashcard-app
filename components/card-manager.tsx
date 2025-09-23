@@ -60,6 +60,14 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
     onListChange(updatedList)
   }
 
+  const confirmDeleteCard = (card: FlashCardData) => {
+    const confirmMessage = `Bạn có chắc chắn muốn xóa thẻ học này?\n\nTiếng Trung: ${card.chinese}\nTiếng Việt: ${card.vietnamese}\n\nHành động này không thể hoàn tác.`
+    
+    if (confirm(confirmMessage)) {
+      removeCard(card.id)
+    }
+  }
+
   const openEditModal = (card: FlashCardData) => {
     setEditingCard(card)
     setEditForm({
@@ -193,7 +201,7 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => removeCard(card.id)}
+                    onClick={() => confirmDeleteCard(card)}
                     className="text-destructive hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
