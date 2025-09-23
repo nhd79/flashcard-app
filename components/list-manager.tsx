@@ -70,7 +70,7 @@ export function ListManager({ lists, onListsChange, onSelectList, onManageCards 
   return (
     <div className="w-full max-w-4xl space-y-6">
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold text-card-foreground">Danh sách flascard</h2>
+        <h2 className="text-2xl font-bold text-card-foreground">Danh sách flashcard</h2>
       </div>
 
       {/* Create new list */}
