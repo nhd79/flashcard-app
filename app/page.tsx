@@ -114,6 +114,22 @@ export default function Home() {
 
   // Users can manually sync using the sync button
 
+  const handleHardRefresh = () => {
+    // Clear all caches and reload
+    if ('caches' in window) {
+      caches.keys().then(names => {
+        names.forEach(name => {
+          caches.delete(name)
+        })
+      }).then(() => {
+        (window as any).location.reload()
+      })
+    } else {
+      // Fallback: force reload with cache bypass
+      (window as any).location.reload()
+    }
+  }
+
   const handleSelectList = (list: CardList) => {
     setCurrentList(list)
     setCurrentView("study")
@@ -172,34 +188,48 @@ export default function Home() {
             
             {/* User Menu - Top Right Corner */}
             <div className="absolute top-4 right-4">
-              {loading ? (
-                <div className="animate-pulse bg-muted rounded w-8 h-8" />
-              ) : user ? (
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-muted-foreground hidden sm:inline">
-                    {user.email}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={signOut}
-                    className="gap-2"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    <span className="hidden sm:inline">Sign Out</span>
-                  </Button>
-                </div>
-              ) : (
+              <div className="flex items-center gap-2">
+                {/* Hard Refresh Button */}
                 <Button
                   variant="default"
                   size="sm"
-                  onClick={() => setShowAuthModal(true)}
-                  className="gap-2"
+                  onClick={handleHardRefresh}
+                  title="Hard refresh app"
+                  className="text-xs"
                 >
-                  <User className="h-4 w-4" />
-                  <span className="hidden sm:inline">Sign In</span>
+                  Hard Refresh
                 </Button>
-              )}
+                
+                {/* User Auth Section */}
+                {loading ? (
+                  <div className="animate-pulse bg-muted rounded w-8 h-8" />
+                ) : user ? (
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-muted-foreground hidden sm:inline">
+                      {user.email}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={signOut}
+                      className="gap-2"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      <span className="hidden sm:inline">Sign Out</span>
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => setShowAuthModal(true)}
+                    className="gap-2"
+                  >
+                    <User className="h-4 w-4" />
+                    <span className="hidden sm:inline">Sign In</span>
+                  </Button>
+                )}
+              </div>
             </div>
             
             {/* Sync Status - Centered */}
