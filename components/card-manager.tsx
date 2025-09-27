@@ -33,7 +33,7 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
     sentence: "",
   })
 
-  const [editingCard, setEditingCard] = useState<FlashCardData | null>(null)
+  const [editingCardId, setEditingCardId] = useState<number | null>(null)
   const [cardToDelete, setCardToDelete] = useState<FlashCardData | null>(null)
   const [editForm, setEditForm] = useState({
     vietnamese: "",
@@ -45,7 +45,10 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
   const addCard = () => {
     if (!newCard.vietnamese.trim() || !newCard.chinese.trim()) return
 
-    const newId = Math.max(...currentList.cards.map((c) => c.id), 0) + 1
+    // Generate a safe ID - handle empty cards array properly
+    const existingIds = currentList.cards.map((c) => c.id).filter(id => typeof id === 'number' && !isNaN(id))
+    const newId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1
+
     const cardToAdd: FlashCardData = {
       id: newId,
       vietnamese: newCard.vietnamese.trim(),
@@ -72,7 +75,7 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
   }
 
   const openEditModal = (card: FlashCardData) => {
-    setEditingCard(card)
+    setEditingCardId(card.id)
     setEditForm({
       vietnamese: card.vietnamese,
       chinese: card.chinese,
@@ -82,15 +85,21 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
   }
 
   const closeEditModal = () => {
-    setEditingCard(null)
+    setEditingCardId(null)
     setEditForm({ vietnamese: "", chinese: "", pinyin: "", sentence: "" })
   }
 
   const saveEditedCard = () => {
-    if (!editingCard || !editForm.vietnamese.trim() || !editForm.chinese.trim()) return
+    if (editingCardId === null || !editForm.vietnamese.trim() || !editForm.chinese.trim()) return
+
+    const originalCard = currentList.cards.find(card => card.id === editingCardId)
+    if (!originalCard) {
+      console.error('Could not find card with ID:', editingCardId)
+      return
+    }
 
     const updatedCard: FlashCardData = {
-      ...editingCard,
+      ...originalCard,
       vietnamese: editForm.vietnamese.trim(),
       chinese: editForm.chinese.trim(),
       pinyin: editForm.pinyin.trim() || undefined,
@@ -100,10 +109,10 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
     const updatedList = {
       ...currentList,
       cards: currentList.cards.map(card => 
-        card.id === editingCard.id ? updatedCard : card
+        card.id === editingCardId ? updatedCard : card
       ),
     }
-    
+
     onListChange(updatedList)
     closeEditModal()
   }
@@ -237,14 +246,14 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
       </div>
 
       {/* Edit Modal */}
-      {editingCard && (
+      {editingCardId !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* Backdrop */}
           <div 
             className="absolute inset-0 bg-black/50" 
             onClick={closeEditModal}
           />
-          
+
           {/* Modal Content */}
           <div className="relative bg-background border rounded-lg shadow-lg w-full max-w-md mx-4 p-6">
             {/* Header */}
