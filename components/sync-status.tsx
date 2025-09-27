@@ -1,15 +1,12 @@
 "use client"
 
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Cloud, CloudOff, Loader2, RefreshCcw, User, UserX } from "lucide-react"
+import { Cloud, CloudOff, Loader2 } from "lucide-react"
 import { useSyncManager } from "@/hooks/use-sync-manager"
-import { useAuth } from "@/hooks/use-auth"
 import { useState, useEffect } from "react"
 
 export function SyncStatus() {
   const { syncStatus, manualSync } = useSyncManager()
-  const { user, loading } = useAuth()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -27,15 +24,9 @@ export function SyncStatus() {
   }
 
   const handleSync = async () => {
-    if (user) {
+    if (syncStatus.isOnline && !syncStatus.isSyncing) {
       await manualSync()
     }
-  }
-
-  const getAuthStatus = () => {
-    if (loading) return { icon: Loader2, text: "Checking...", variant: "secondary" as const }
-    if (user) return { icon: User, text: "Signed In", variant: "default" as const }
-    return { icon: UserX, text: "Sign In Required", variant: "outline" as const }
   }
 
   const getOnlineStatus = () => {
@@ -44,31 +35,21 @@ export function SyncStatus() {
     return { icon: CloudOff, text: "Offline", variant: "destructive" as const }
   }
 
-  const authStatus = getAuthStatus()
   const onlineStatus = getOnlineStatus()
-  const AuthIcon = authStatus.icon
   const OnlineIcon = onlineStatus.icon
 
   return (
     <div className="flex items-center gap-2 text-sm">
-      {/* Online Status */}
-      <Badge variant={onlineStatus.variant} className="gap-1">
+      {/* Clickable Online Status Badge */}
+      <Badge 
+        variant={onlineStatus.variant} 
+        className={`gap-1 ${syncStatus.isOnline && !syncStatus.isSyncing ? "cursor-pointer hover:opacity-80 transition-opacity" : "cursor-default"}`}
+        onClick={handleSync}
+        title={syncStatus.isOnline && !syncStatus.isSyncing ? "Click to sync" : onlineStatus.text}
+      >
         <OnlineIcon className={`h-3 w-3 ${syncStatus.isSyncing ? "animate-spin" : ""}`} />
         {onlineStatus.text}
       </Badge>
-
-      {/* Sync Button */}
-      {user && syncStatus.isOnline && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleSync}
-          disabled={syncStatus.isSyncing}
-          className="h-6 px-2 text-xs"
-        >
-          <RefreshCcw className={`h-3 w-3 ${syncStatus.isSyncing ? "animate-spin" : ""}`} />
-        </Button>
-      )}
 
       {/* Last Sync Time */}
       {syncStatus.lastSyncTime && (
