@@ -12,16 +12,23 @@ import { useSyncManager } from "@/hooks/use-sync-manager"
 import { SyncStatus } from "@/components/sync-status"
 
 export default function Home() {
-  const [lists, setLists, isListsInitialized] = useLocalStorage<CardList[]>("flashcard-lists", [])
+  const [lists, setLists] = useLocalStorage<CardList[]>("flashcard-lists", [])
   const [currentList, setCurrentList] = useState<CardList | null>(null)
   const [showCardManager, setShowCardManager] = useState(false)
   const [currentView, setCurrentView] = useState<"lists" | "study" | "manage">("lists")
+  const [isLoading, setIsLoading] = useState(true);
 
   const { forceSyncFromCloud } = useSyncManager()
 
   useEffect(() => {
-    // No default list creation - start with empty state
-  }, [isListsInitialized])
+    if (typeof window !== "undefined") {
+      const storedLists = localStorage.getItem("flashcard-lists");
+      if (storedLists) {
+        setLists(JSON.parse(storedLists));
+      }
+      setIsLoading(false);
+    }
+  }, []);
 
   // Users can manually sync using the sync button
 
@@ -95,7 +102,7 @@ export default function Home() {
       <div className="container mx-auto px-4 py-12">
         <div className="flex justify-center">
           <div className="w-full max-w-4xl">
-            {!isListsInitialized ? (
+            {isLoading ? (
               <div className="flex justify-center items-center min-h-[200px]">
                 <div className="animate-pulse text-muted-foreground">Loading...</div>
               </div>

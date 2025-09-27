@@ -6,6 +6,17 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Trash2, Plus, ArrowLeft, Edit2, X } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import type { FlashCardData, CardList } from "./list-manager"
 
 interface CardManagerProps {
@@ -23,6 +34,7 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
   })
 
   const [editingCard, setEditingCard] = useState<FlashCardData | null>(null)
+  const [cardToDelete, setCardToDelete] = useState<FlashCardData | null>(null)
   const [editForm, setEditForm] = useState({
     vietnamese: "",
     chinese: "",
@@ -56,14 +68,7 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
       cards: currentList.cards.filter((card) => card.id !== id),
     }
     onListChange(updatedList)
-  }
-
-  const confirmDeleteCard = (card: FlashCardData) => {
-    const confirmMessage = `Bạn có chắc chắn muốn xóa thẻ học này?\n\nTiếng Trung: ${card.chinese}\nTiếng Việt: ${card.vietnamese}\n\nHành động này không thể hoàn tác.`
-    
-    if (confirm(confirmMessage)) {
-      removeCard(card.id)
-    }
+    setCardToDelete(null)
   }
 
   const openEditModal = (card: FlashCardData) => {
@@ -194,14 +199,36 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
                   >
                     <Edit2 className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => confirmDeleteCard(card)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setCardToDelete(card)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    {cardToDelete && (
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Bạn có chắc chắn không?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Hành động này sẽ xóa vĩnh viễn thẻ học sau. Bạn có muốn tiếp tục?
+                        </AlertDialogDescription>
+                          <div className="mt-4 rounded-md border bg-muted p-4">
+                            <p className="font-semibold">{cardToDelete.chinese}</p>
+                            <p className="text-sm text-muted-foreground">→ {cardToDelete.vietnamese}</p>
+                          </div>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setCardToDelete(null)}>Hủy</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => removeCard(cardToDelete.id)}>Xóa</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                    )}
+                  </AlertDialog>
                 </div>
               </div>
             </Card>

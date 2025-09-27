@@ -10,28 +10,19 @@ function dateReviver(key: string, value: any) {
 }
 
 export function useLocalStorage<T>(key: string, initialValue: T) {
-  const [storedValue, setStoredValue] = useState<T>(initialValue);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  useEffect(() => {
+  const [storedValue, setStoredValue] = useState<T>(() => {
     if (typeof window === "undefined") {
-      setIsInitialized(true);
-      return;
+      return initialValue;
     }
-
     try {
       const item = window.localStorage.getItem(key);
-      const value = item ? JSON.parse(item, dateReviver) : initialValue;
-      setStoredValue(value);
+      return item ? JSON.parse(item, dateReviver) : initialValue;
     } catch (error) {
       console.error(`Error reading localStorage key "${key}":`, error);
-      setStoredValue(initialValue);
-    } finally {
-      setIsInitialized(true);
+      return initialValue;
     }
-  }, [key, initialValue]);
+  });
 
-  // Listen for changes to localStorage (from other parts of the app)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -39,7 +30,9 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
       if (e.key === key && e.newValue) {
         try {
           const newValue = JSON.parse(e.newValue, dateReviver);
-          setStoredValue(newValue);
+          if (JSON.stringify(newValue) !== JSON.stringify(storedValue)) {
+            setStoredValue(newValue);
+          }
         } catch (error) {
           console.error(
             `Error parsing localStorage change for key "${key}":`,
@@ -49,13 +42,14 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
       }
     };
 
-    // Also listen for custom events for same-tab changes
     const handleCustomStorageChange = (e: CustomEvent) => {
       if (e.detail.key === key) {
         try {
           const item = window.localStorage.getItem(key);
-          const value = item ? JSON.parse(item, dateReviver) : initialValue;
-          setStoredValue(value);
+          const value = item ? JSON.parse(item, dateReviver) : storedValue;
+          if (JSON.stringify(value) !== JSON.stringify(storedValue)) {
+            setStoredValue(value);
+          }
         } catch (error) {
           console.error(
             `Error reading localStorage key "${key}" after custom event:`,
@@ -78,7 +72,7 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
         handleCustomStorageChange as EventListener
       );
     };
-  }, [key, initialValue]);
+  }, [key, storedValue]);
 
   const setValue = (value: T | ((val: T) => T)) => {
     try {
@@ -99,5 +93,5 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
     }
   };
 
-  return [storedValue, setValue, isInitialized] as const;
+  return [storedValue, setValue] as const;
 }
