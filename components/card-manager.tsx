@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Trash2, Plus, ArrowLeft, Edit2 } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Trash2, Plus, ArrowLeft, Edit2, X } from "lucide-react"
 import type { FlashCardData, CardList } from "./list-manager"
 
 interface CardManagerProps {
@@ -30,7 +29,6 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
     pinyin: "",
     sentence: "",
   })
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
 
   const addCard = () => {
     if (!newCard.vietnamese.trim() || !newCard.chinese.trim()) return
@@ -76,13 +74,11 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
       pinyin: card.pinyin || "",
       sentence: card.sentence || "",
     })
-    setIsEditDialogOpen(true)
   }
 
   const closeEditModal = () => {
     setEditingCard(null)
     setEditForm({ vietnamese: "", chinese: "", pinyin: "", sentence: "" })
-    setIsEditDialogOpen(false)
   }
 
   const saveEditedCard = () => {
@@ -214,65 +210,85 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
       </div>
 
       {/* Edit Modal */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Edit2 className="h-5 w-5" />
-              Chỉnh sửa thẻ học
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-chinese">Tiếng Trung *</Label>
-              <Input
-                id="edit-chinese"
-                value={editForm.chinese}
-                onChange={(e) => setEditForm((prev) => ({ ...prev, chinese: e.target.value }))}
-                placeholder="Nhập từ tiếng Trung..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-pinyin">Pinyin</Label>
-              <Input
-                id="edit-pinyin"
-                value={editForm.pinyin}
-                onChange={(e) => setEditForm((prev) => ({ ...prev, pinyin: e.target.value }))}
-                placeholder="Nhập phiên âm pinyin..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-sentence">Đặt câu</Label>
-              <Input
-                id="edit-sentence"
-                value={editForm.sentence}
-                onChange={(e) => setEditForm((prev) => ({ ...prev, sentence: e.target.value }))}
-                placeholder="Đặt câu..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-vietnamese">Tiếng Việt *</Label>
-              <Input
-                id="edit-vietnamese"
-                value={editForm.vietnamese}
-                onChange={(e) => setEditForm((prev) => ({ ...prev, vietnamese: e.target.value }))}
-                placeholder="Nhập nghĩa tiếng Việt..."
-              />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={closeEditModal}>
-                Hủy
-              </Button>
-              <Button 
-                onClick={saveEditedCard} 
-                disabled={!editForm.vietnamese.trim() || !editForm.chinese.trim()}
+      {editingCard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50" 
+            onClick={closeEditModal}
+          />
+          
+          {/* Modal Content */}
+          <div className="relative bg-background border rounded-lg shadow-lg w-full max-w-md mx-4 p-6">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Edit2 className="h-5 w-5" />
+                <h3 className="text-lg font-semibold">Chỉnh sửa thẻ học</h3>
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={closeEditModal}
+                className="h-8 w-8"
               >
-                Lưu thay đổi
+                <X className="h-4 w-4" />
               </Button>
+            </div>
+
+            {/* Form */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-chinese">Tiếng Trung *</Label>
+                <Input
+                  id="edit-chinese"
+                  value={editForm.chinese}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, chinese: e.target.value }))}
+                  placeholder="Nhập từ tiếng Trung..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-pinyin">Pinyin</Label>
+                <Input
+                  id="edit-pinyin"
+                  value={editForm.pinyin}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, pinyin: e.target.value }))}
+                  placeholder="Nhập phiên âm pinyin..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-sentence">Đặt câu</Label>
+                <Input
+                  id="edit-sentence"
+                  value={editForm.sentence}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, sentence: e.target.value }))}
+                  placeholder="Đặt câu..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-vietnamese">Tiếng Việt *</Label>
+                <Input
+                  id="edit-vietnamese"
+                  value={editForm.vietnamese}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, vietnamese: e.target.value }))}
+                  placeholder="Nhập nghĩa tiếng Việt..."
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={closeEditModal}>
+                  Hủy
+                </Button>
+                <Button 
+                  onClick={saveEditedCard} 
+                  disabled={!editForm.vietnamese.trim() || !editForm.chinese.trim()}
+                >
+                  Lưu thay đổi
+                </Button>
+              </div>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
     </div>
   )
 }
