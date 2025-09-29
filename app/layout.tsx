@@ -5,19 +5,24 @@ import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { Suspense } from "react"
-
-export const metadata: Metadata = {
-  title: "Flashcard Study App",
-  description: "A progressive web app for studying flashcards",
-  generator: "v0.app",
-  manifest: "/manifest.json",
-  keywords: ["flashcards", "study", "education", "learning"],
-  authors: [{ name: "Flashcard App" }],
-  icons: {
-    icon: "/icon-192.png",
-    shortcut: "/icon-192.png",
-    apple: "/apple-touch-icon.png",
-  },
+import * as Sentry from '@sentry/nextjs';
+export function generateMetadata(): Metadata {
+  return {
+    title: "Flashcard Study App",
+    description: "A progressive web app for studying flashcards",
+    generator: "v0.app",
+    manifest: "/manifest.json",
+    keywords: ["flashcards", "study", "education", "learning"],
+    authors: [{ name: "Flashcard App" }],
+    icons: {
+      icon: "/icon-192.png",
+      shortcut: "/icon-192.png",
+      apple: "/apple-touch-icon.png",
+    },
+    other: {
+      ...Sentry.getTraceData()
+    }
+  };
 }
 
 export default function RootLayout({
