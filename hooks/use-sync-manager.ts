@@ -142,7 +142,7 @@ export function useSyncManager() {
               );
             }
 
-            // Sync any new cards for existing list
+            // Sync cards for existing list
             if (list.cards && list.cards.length > 0) {
               // Get existing cards
               const { data: existingCards } = await supabase
@@ -160,6 +160,15 @@ export function useSyncManager() {
                   typeof card.id === "number" || !existingCardIds.has(card.id)
               );
 
+              // Find existing cards that might have been updated
+              const existingLocalCards = list.cards.filter(
+                (card: any) =>
+                  typeof card.id === "string" &&
+                  card.id.length > 10 &&
+                  existingCardIds.has(card.id)
+              );
+
+              // Insert new cards
               if (newCards.length > 0) {
                 const cardsToInsert = newCards.map((card: any) => ({
                   list_id: list.id,
@@ -190,6 +199,45 @@ export function useSyncManager() {
                   console.log(
                     `[Sync] Synced ${insertedCards?.length} new cards for "${list.name}"`
                   );
+                }
+              }
+
+              // Update existing cards that have changed
+              for (const localCard of existingLocalCards) {
+                const cloudCard = existingCards?.find(
+                  (c) => c.id === localCard.id
+                );
+                if (cloudCard) {
+                  const localCardData = {
+                    front: localCard.vietnamese || "",
+                    back: JSON.stringify({
+                      chinese: localCard.chinese || "",
+                      pinyin: localCard.pinyin || "",
+                      sentence: localCard.sentence || "",
+                    }),
+                  };
+
+                  // Check if card needs updating
+                  if (
+                    cloudCard.front !== localCardData.front ||
+                    cloudCard.back !== localCardData.back
+                  ) {
+                    const { error: updateError } = await supabase
+                      .from("flashcards")
+                      .update(localCardData)
+                      .eq("id", localCard.id);
+
+                    if (updateError) {
+                      console.error(
+                        `[Sync] Error updating card ${localCard.id}:`,
+                        updateError
+                      );
+                    } else {
+                      console.log(
+                        `[Sync] Updated card "${localCard.chinese}" in "${list.name}"`
+                      );
+                    }
+                  }
                 }
               }
             }
@@ -340,17 +388,96 @@ export function useSyncManager() {
     }
   }, [syncStatus.isOnline, supabase]);
 
+  const syncDeletions = useCallback(async () => {
+    if (!syncStatus.isOnline || typeof window === "undefined") return;
+
+    try {
+      // Get current local data
+      const localData = localStorage.getItem("flashcard-lists");
+      if (!localData) return;
+
+      const localLists = JSON.parse(localData);
+
+      // For each list, compare with cloud data to find deletions
+      for (const localList of localLists) {
+        // Skip new lists that don't exist in cloud yet
+        if (
+          typeof localList.id === "number" ||
+          String(localList.id).startsWith("temp_")
+        ) {
+          continue;
+        }
+
+        // Get cloud cards for this list
+        const { data: cloudCards, error } = await supabase
+          .from("flashcards")
+          .select("id")
+          .eq("list_id", localList.id);
+
+        if (error) {
+          console.error(
+            "[Sync] Error fetching cloud cards for deletion sync:",
+            error
+          );
+          continue;
+        }
+
+        const cloudCardIds = new Set(cloudCards?.map((card) => card.id) || []);
+        const localCardIds = new Set(
+          localList.cards
+            .filter(
+              (card: any) => typeof card.id === "string" && card.id.length > 10
+            ) // Only UUIDs
+            .map((card: any) => card.id)
+        );
+
+        // Find cards that exist in cloud but not locally (were deleted locally)
+        const cardsToDelete = Array.from(cloudCardIds).filter(
+          (id) => !localCardIds.has(id)
+        );
+
+        if (cardsToDelete.length > 0) {
+          console.log(
+            `[Sync] Deleting ${cardsToDelete.length} cards from cloud for list "${localList.name}"`
+          );
+
+          const { error: deleteError } = await supabase
+            .from("flashcards")
+            .delete()
+            .in("id", cardsToDelete);
+
+          if (deleteError) {
+            console.error(
+              "[Sync] Error deleting cards from cloud:",
+              deleteError
+            );
+          } else {
+            console.log(
+              `[Sync] Successfully deleted ${cardsToDelete.length} cards from cloud`
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error("[Sync] Error in deletion sync:", error);
+    }
+  }, [syncStatus.isOnline, supabase]);
+
   const manualSync = useCallback(async () => {
     if (!syncStatus.isOnline) return null;
 
-    // First, sync local changes to cloud to preserve them
+    // First, sync deletions to cloud
+    await syncDeletions();
+
+    // Then, sync local changes to cloud to preserve them
     await syncToCloud();
 
-    // Then, fetch cloud data and update local storage
+    // Finally, fetch fresh cloud data (after deletions and updates)
     const cloudData = await syncFromCloud();
 
-    // If we got cloud data, update local storage with it
-    if (cloudData && cloudData.length > 0) {
+    // Always update local storage with the fresh cloud data
+    // since we've already synced all local changes (including deletions)
+    if (cloudData) {
       localStorage.setItem("flashcard-lists", JSON.stringify(cloudData));
 
       // Dispatch custom event to notify other components
@@ -366,11 +493,11 @@ export function useSyncManager() {
         "[Sync] Manual sync completed - local data updated with cloud data"
       );
     } else {
-      console.log("[Sync] Manual sync completed - no cloud data to merge");
+      console.log("[Sync] Manual sync completed - no cloud data received");
     }
 
     return cloudData;
-  }, [syncFromCloud, syncToCloud, syncStatus.isOnline]);
+  }, [syncFromCloud, syncToCloud, syncDeletions, syncStatus.isOnline]);
 
   const forceSyncFromCloud = useCallback(async () => {
     if (!syncStatus.isOnline || typeof window === "undefined") return null;
@@ -461,5 +588,6 @@ export function useSyncManager() {
     syncFromCloud,
     forceSyncFromCloud,
     manualSync,
+    syncDeletions,
   };
 }
