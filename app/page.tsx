@@ -18,7 +18,7 @@ export default function Home() {
   const [currentView, setCurrentView] = useState<"lists" | "study" | "manage">("lists")
   const [isLoading, setIsLoading] = useState(true);
 
-  const { forceSyncFromCloud } = useSyncManager()
+  const { forceSyncFromCloud, syncStatus, autoSyncToCloud } = useSyncManager()
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -43,13 +43,23 @@ export default function Home() {
   }
 
   const handleListsChange = (newLists: CardList[]) => {
+    if (!syncStatus.isOnline) {
+      throw new Error("Cannot modify lists while offline. Please connect to the internet.")
+    }
     setLists(newLists)
+    // Auto-sync to cloud when online
+    autoSyncToCloud()
   }
 
   const handleListChange = (updatedList: CardList) => {
+    if (!syncStatus.isOnline) {
+      throw new Error("Cannot modify cards while offline. Please connect to the internet.")
+    }
     const updatedLists = lists.map((list) => (list.id === updatedList.id ? updatedList : list))
     setLists(updatedLists)
     setCurrentList(updatedList)
+    // Auto-sync to cloud when online
+    autoSyncToCloud()
   }
 
   const getBreadcrumbItems = () => {
@@ -116,12 +126,14 @@ export default function Home() {
                     onListsChange={handleListsChange}
                     onSelectList={handleSelectList}
                     onManageCards={handleManageCards}
+                    isOnline={syncStatus.isOnline}
                   />
                 ) : currentView === "manage" && currentList ? (
                   <CardManager
                     currentList={currentList}
                     onListChange={handleListChange}
                     onClose={() => setCurrentView("lists")}
+                    isOnline={syncStatus.isOnline}
                   />
                 ) : currentList ? (
                   <div className="space-y-6">

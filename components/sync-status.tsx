@@ -25,6 +25,7 @@ export function SyncStatus() {
 
   const handleSync = async () => {
     if (syncStatus.isOnline && !syncStatus.isSyncing) {
+      // Manual sync now only pulls from cloud
       await manualSync()
     }
   }
@@ -45,7 +46,7 @@ export function SyncStatus() {
         variant={onlineStatus.variant} 
         className={`gap-1 ${syncStatus.isOnline && !syncStatus.isSyncing ? "cursor-pointer hover:opacity-80 transition-opacity" : "cursor-default"}`}
         onClick={handleSync}
-        title={syncStatus.isOnline && !syncStatus.isSyncing ? "Click to sync" : onlineStatus.text}
+        title={syncStatus.isOnline && !syncStatus.isSyncing ? "Click để đồng bộ từ cloud" : onlineStatus.text}
       >
         <OnlineIcon className={`h-3 w-3 ${syncStatus.isSyncing ? "animate-spin" : ""}`} />
         {onlineStatus.text}

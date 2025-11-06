@@ -463,42 +463,6 @@ export function useSyncManager() {
     }
   }, [syncStatus.isOnline, supabase]);
 
-  const manualSync = useCallback(async () => {
-    if (!syncStatus.isOnline) return null;
-
-    // First, sync deletions to cloud
-    await syncDeletions();
-
-    // Then, sync local changes to cloud to preserve them
-    await syncToCloud();
-
-    // Finally, fetch fresh cloud data (after deletions and updates)
-    const cloudData = await syncFromCloud();
-
-    // Always update local storage with the fresh cloud data
-    // since we've already synced all local changes (including deletions)
-    if (cloudData) {
-      localStorage.setItem("flashcard-lists", JSON.stringify(cloudData));
-
-      // Dispatch custom event to notify other components
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(
-          new CustomEvent("localStorageChange", {
-            detail: { key: "flashcard-lists", value: cloudData },
-          })
-        );
-      }
-
-      console.log(
-        "[Sync] Manual sync completed - local data updated with cloud data"
-      );
-    } else {
-      console.log("[Sync] Manual sync completed - no cloud data received");
-    }
-
-    return cloudData;
-  }, [syncFromCloud, syncToCloud, syncDeletions, syncStatus.isOnline]);
-
   const forceSyncFromCloud = useCallback(async () => {
     if (!syncStatus.isOnline || typeof window === "undefined") return null;
 
@@ -582,6 +546,309 @@ export function useSyncManager() {
     }
   }, [syncStatus.isOnline, supabase]);
 
+  const manualSync = useCallback(async () => {
+    if (!syncStatus.isOnline) return null;
+
+    // Manual sync now only pulls from cloud (force overwrite local)
+    const cloudData = await forceSyncFromCloud();
+
+    return cloudData;
+  }, [forceSyncFromCloud, syncStatus.isOnline]);
+
+  // Auto-sync function that pushes local changes to cloud immediately
+  const autoSyncToCloud = useCallback(async () => {
+    if (!syncStatus.isOnline || typeof window === "undefined") return;
+
+    setSyncStatus((prev) => ({ ...prev, isSyncing: true }));
+
+    try {
+      const localData = localStorage.getItem("flashcard-lists");
+      if (!localData) return;
+
+      const localLists = JSON.parse(localData);
+
+      for (const list of localLists) {
+        // Check if this is a new list (has numeric/temp ID) or existing list (has UUID)
+        const isNewList =
+          typeof list.id === "number" || String(list.id).startsWith("temp_");
+
+        if (isNewList) {
+          // New list - create in cloud and update local with returned UUID
+          const { data: newList, error: listError } = await supabase
+            .from("flashcard_lists")
+            .insert({
+              name: list.name,
+            })
+            .select()
+            .single();
+
+          if (listError) {
+            console.error("[Auto-Sync] Error creating new list:", listError);
+            continue;
+          }
+
+          // Update local list with cloud UUID
+          list.id = newList.id;
+          console.log(
+            `[Auto-Sync] Created new list "${list.name}" with ID ${newList.id}`
+          );
+
+          // Sync cards for the new list
+          if (list.cards && list.cards.length > 0) {
+            const cardsToInsert = list.cards.map((card: any) => ({
+              list_id: newList.id,
+              front: card.vietnamese || "",
+              back: JSON.stringify({
+                chinese: card.chinese || "",
+                pinyin: card.pinyin || "",
+                sentence: card.sentence || "",
+              }),
+            }));
+
+            const { data: newCards, error: cardsError } = await supabase
+              .from("flashcards")
+              .insert(cardsToInsert)
+              .select();
+
+            if (cardsError) {
+              console.error(
+                "[Auto-Sync] Error syncing cards for new list:",
+                cardsError
+              );
+            } else {
+              // Update local cards with cloud UUIDs
+              newCards?.forEach((cloudCard, index) => {
+                if (list.cards[index]) {
+                  list.cards[index].id = cloudCard.id;
+                }
+              });
+              console.log(
+                `[Auto-Sync] Synced ${newCards?.length} cards for new list "${list.name}"`
+              );
+            }
+          }
+        } else {
+          // Existing list with UUID - try to update it
+          const { data: existingList, error: selectError } = await supabase
+            .from("flashcard_lists")
+            .select("id, name")
+            .eq("id", list.id)
+            .single();
+
+          if (existingList) {
+            // List exists - update if name changed
+            if (existingList.name !== list.name) {
+              const { error: updateError } = await supabase
+                .from("flashcard_lists")
+                .update({ name: list.name })
+                .eq("id", list.id);
+
+              if (updateError) {
+                console.error(
+                  "[Auto-Sync] Error updating list name:",
+                  updateError
+                );
+                continue;
+              }
+              console.log(
+                `[Auto-Sync] Updated list name from "${existingList.name}" to "${list.name}"`
+              );
+            }
+
+            // Sync cards for existing list
+            if (list.cards && list.cards.length > 0) {
+              // Get existing cards
+              const { data: existingCards } = await supabase
+                .from("flashcards")
+                .select("id, front, back")
+                .eq("list_id", list.id);
+
+              const existingCardIds = new Set(
+                existingCards?.map((card) => card.id) || []
+              );
+
+              // Find new cards (cards without UUIDs or not in cloud)
+              const newCards = list.cards.filter(
+                (card: any) =>
+                  typeof card.id === "number" || !existingCardIds.has(card.id)
+              );
+
+              // Find existing cards that might have been updated
+              const existingLocalCards = list.cards.filter(
+                (card: any) =>
+                  typeof card.id === "string" &&
+                  card.id.length > 10 &&
+                  existingCardIds.has(card.id)
+              );
+
+              // Insert new cards
+              if (newCards.length > 0) {
+                const cardsToInsert = newCards.map((card: any) => ({
+                  list_id: list.id,
+                  front: card.vietnamese || "",
+                  back: JSON.stringify({
+                    chinese: card.chinese || "",
+                    pinyin: card.pinyin || "",
+                    sentence: card.sentence || "",
+                  }),
+                }));
+
+                const { data: insertedCards, error: cardsError } =
+                  await supabase
+                    .from("flashcards")
+                    .insert(cardsToInsert)
+                    .select();
+
+                if (cardsError) {
+                  console.error(
+                    "[Auto-Sync] Error syncing new cards:",
+                    cardsError
+                  );
+                } else {
+                  // Update local cards with cloud UUIDs
+                  insertedCards?.forEach((cloudCard, index) => {
+                    const localCard = newCards[index];
+                    if (localCard) {
+                      localCard.id = cloudCard.id;
+                    }
+                  });
+                  console.log(
+                    `[Auto-Sync] Synced ${insertedCards?.length} new cards for "${list.name}"`
+                  );
+                }
+              }
+
+              // Update existing cards that have changed
+              for (const localCard of existingLocalCards) {
+                const cloudCard = existingCards?.find(
+                  (c) => c.id === localCard.id
+                );
+                if (cloudCard) {
+                  const localCardData = {
+                    front: localCard.vietnamese || "",
+                    back: JSON.stringify({
+                      chinese: localCard.chinese || "",
+                      pinyin: localCard.pinyin || "",
+                      sentence: localCard.sentence || "",
+                    }),
+                  };
+
+                  // Check if card needs updating
+                  if (
+                    cloudCard.front !== localCardData.front ||
+                    cloudCard.back !== localCardData.back
+                  ) {
+                    const { error: updateError } = await supabase
+                      .from("flashcards")
+                      .update(localCardData)
+                      .eq("id", localCard.id);
+
+                    if (updateError) {
+                      console.error(
+                        `[Auto-Sync] Error updating card ${localCard.id}:`,
+                        updateError
+                      );
+                    } else {
+                      console.log(
+                        `[Auto-Sync] Updated card "${localCard.chinese}" in "${list.name}"`
+                      );
+                    }
+                  }
+                }
+              }
+
+              // Handle deletions - find cards in cloud but not in local
+              const localCardIds = new Set(
+                list.cards
+                  .filter(
+                    (card: any) =>
+                      typeof card.id === "string" && card.id.length > 10
+                  )
+                  .map((card: any) => card.id)
+              );
+
+              const cardsToDelete = Array.from(existingCardIds).filter(
+                (id) => !localCardIds.has(id)
+              );
+
+              if (cardsToDelete.length > 0) {
+                console.log(
+                  `[Auto-Sync] Deleting ${cardsToDelete.length} cards from cloud for list "${list.name}"`
+                );
+
+                const { error: deleteError } = await supabase
+                  .from("flashcards")
+                  .delete()
+                  .in("id", cardsToDelete);
+
+                if (deleteError) {
+                  console.error(
+                    "[Auto-Sync] Error deleting cards from cloud:",
+                    deleteError
+                  );
+                } else {
+                  console.log(
+                    `[Auto-Sync] Successfully deleted ${cardsToDelete.length} cards from cloud`
+                  );
+                }
+              }
+            }
+          } else if (selectError?.code !== "PGRST116") {
+            // List doesn't exist in cloud (but it's not a "not found" error)
+            console.error(
+              "[Auto-Sync] Error checking existing list:",
+              selectError
+            );
+            continue;
+          } else {
+            // List was deleted from cloud - treat as new
+            const { data: recreatedList, error: recreateError } = await supabase
+              .from("flashcard_lists")
+              .insert({
+                name: list.name,
+              })
+              .select()
+              .single();
+
+            if (recreateError) {
+              console.error(
+                "[Auto-Sync] Error recreating deleted list:",
+                recreateError
+              );
+              continue;
+            }
+
+            list.id = recreatedList.id;
+            console.log(
+              `[Auto-Sync] Recreated deleted list "${list.name}" with new ID ${recreatedList.id}`
+            );
+          }
+        }
+      }
+
+      // Save updated local data with cloud UUIDs
+      localStorage.setItem("flashcard-lists", JSON.stringify(localLists));
+
+      // Dispatch event to update UI
+      window.dispatchEvent(
+        new CustomEvent("localStorageChange", {
+          detail: { key: "flashcard-lists", value: localLists },
+        })
+      );
+
+      setSyncStatus((prev) => ({
+        ...prev,
+        lastSyncTime: new Date(),
+        pendingChanges: 0,
+      }));
+      console.log("[Auto-Sync] Successfully synced to cloud");
+    } catch (error) {
+      console.error("[Auto-Sync] Sync error:", error);
+    } finally {
+      setSyncStatus((prev) => ({ ...prev, isSyncing: false }));
+    }
+  }, [syncStatus.isOnline, supabase]);
+
   return {
     syncStatus,
     syncToCloud,
@@ -589,5 +856,6 @@ export function useSyncManager() {
     forceSyncFromCloud,
     manualSync,
     syncDeletions,
+    autoSyncToCloud,
   };
 }

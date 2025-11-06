@@ -6,6 +6,7 @@ import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { Suspense } from "react"
 import * as Sentry from '@sentry/nextjs';
+import { Toaster } from "@/components/ui/toaster"
 export function generateMetadata(): Metadata {
   return {
     title: "Flashcard Study App",
@@ -60,6 +61,7 @@ export default function RootLayout({
       </head>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <Suspense fallback={null}>{children}</Suspense>
+        <Toaster />
         <Analytics />
       </body>
     </html>

@@ -17,15 +17,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast"
 import type { FlashCardData, CardList } from "./list-manager"
 
 interface CardManagerProps {
   currentList: CardList
   onListChange: (updatedList: CardList) => void
   onClose: () => void
+  isOnline?: boolean
 }
 
-export function CardManager({ currentList, onListChange, onClose }: CardManagerProps) {
+export function CardManager({ currentList, onListChange, onClose, isOnline = false }: CardManagerProps) {
+  const { toast } = useToast()
   const [newCard, setNewCard] = useState({
     vietnamese: "",
     chinese: "",
@@ -41,37 +44,70 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
     pinyin: "",
     sentence: "",
   })
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const addCard = () => {
     if (!newCard.vietnamese.trim() || !newCard.chinese.trim()) return
 
-    // Generate a safe ID - handle empty cards array properly
-    const existingIds = currentList.cards.map((c) => c.id).filter(id => typeof id === 'number' && !isNaN(id))
-    const newId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1
+    try {
+      setErrorMessage(null)
 
-    const cardToAdd: FlashCardData = {
-      id: newId,
-      vietnamese: newCard.vietnamese.trim(),
-      chinese: newCard.chinese.trim(),
-      pinyin: newCard.pinyin.trim() || undefined,
-      sentence: newCard.sentence.trim() || undefined,
-    }
+      // Generate a safe ID - handle empty cards array properly
+      const existingIds = currentList.cards.map((c) => c.id).filter(id => typeof id === 'number' && !isNaN(id))
+      const newId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1
 
-    const updatedList = {
-      ...currentList,
-      cards: [...currentList.cards, cardToAdd],
+      const cardToAdd: FlashCardData = {
+        id: newId,
+        vietnamese: newCard.vietnamese.trim(),
+        chinese: newCard.chinese.trim(),
+        pinyin: newCard.pinyin.trim() || undefined,
+        sentence: newCard.sentence.trim() || undefined,
+      }
+
+      const updatedList = {
+        ...currentList,
+        cards: [...currentList.cards, cardToAdd],
+      }
+      onListChange(updatedList)
+      setNewCard({ vietnamese: "", chinese: "", pinyin: "", sentence: "" })
+      toast({
+        title: "✅ Thành công",
+        description: "Thẻ đã được thêm và đồng bộ lên cloud",
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An error occurred"
+      setErrorMessage(message)
+      toast({
+        title: "❌ Lỗi",
+        description: message,
+        variant: "destructive",
+      })
     }
-    onListChange(updatedList)
-    setNewCard({ vietnamese: "", chinese: "", pinyin: "", sentence: "" })
   }
 
   const removeCard = (id: number) => {
-    const updatedList = {
-      ...currentList,
-      cards: currentList.cards.filter((card) => card.id !== id),
+    try {
+      setErrorMessage(null)
+      const updatedList = {
+        ...currentList,
+        cards: currentList.cards.filter((card) => card.id !== id),
+      }
+      onListChange(updatedList)
+      setCardToDelete(null)
+      toast({
+        title: "✅ Đã xóa",
+        description: "Thẻ đã được xóa và đồng bộ lên cloud",
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An error occurred"
+      setErrorMessage(message)
+      setCardToDelete(null)
+      toast({
+        title: "❌ Lỗi",
+        description: message,
+        variant: "destructive",
+      })
     }
-    onListChange(updatedList)
-    setCardToDelete(null)
   }
 
   const openEditModal = (card: FlashCardData) => {
@@ -92,29 +128,44 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
   const saveEditedCard = () => {
     if (editingCardId === null || !editForm.vietnamese.trim() || !editForm.chinese.trim()) return
 
-    const originalCard = currentList.cards.find(card => card.id === editingCardId)
-    if (!originalCard) {
-      console.error('Could not find card with ID:', editingCardId)
-      return
-    }
+    try {
+      setErrorMessage(null)
+      const originalCard = currentList.cards.find(card => card.id === editingCardId)
+      if (!originalCard) {
+        console.error('Could not find card with ID:', editingCardId)
+        return
+      }
 
-    const updatedCard: FlashCardData = {
-      ...originalCard,
-      vietnamese: editForm.vietnamese.trim(),
-      chinese: editForm.chinese.trim(),
-      pinyin: editForm.pinyin.trim() || undefined,
-      sentence: editForm.sentence.trim() || undefined,
-    }
+      const updatedCard: FlashCardData = {
+        ...originalCard,
+        vietnamese: editForm.vietnamese.trim(),
+        chinese: editForm.chinese.trim(),
+        pinyin: editForm.pinyin.trim() || undefined,
+        sentence: editForm.sentence.trim() || undefined,
+      }
 
-    const updatedList = {
-      ...currentList,
-      cards: currentList.cards.map(card => 
-        card.id === editingCardId ? updatedCard : card
-      ),
-    }
+      const updatedList = {
+        ...currentList,
+        cards: currentList.cards.map(card => 
+          card.id === editingCardId ? updatedCard : card
+        ),
+      }
 
-    onListChange(updatedList)
-    closeEditModal()
+      onListChange(updatedList)
+      closeEditModal()
+      toast({
+        title: "✅ Đã cập nhật",
+        description: "Thẻ đã được cập nhật và đồng bộ lên cloud",
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An error occurred"
+      setErrorMessage(message)
+      toast({
+        title: "❌ Lỗi",
+        description: message,
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -130,6 +181,24 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
           </div>
         </div>
       </div>
+
+      {/* Offline Notice */}
+      {!isOnline && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+            ⚠️ Chế độ offline - Chỉ có thể xem thẻ. Kết nối internet để thêm, sửa hoặc xóa thẻ.
+          </p>
+        </div>
+      )}
+
+      {/* Error Message */}
+      {errorMessage && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <p className="text-sm text-red-800 dark:text-red-200">
+            ❌ {errorMessage}
+          </p>
+        </div>
+      )}
 
       {/* Add new card form */}
       <Card>
@@ -147,6 +216,7 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
               value={newCard.chinese}
               onChange={(e) => setNewCard((prev) => ({ ...prev, chinese: e.target.value }))}
               placeholder="Nhập từ tiếng Trung..."
+              disabled={!isOnline}
             />
           </div>
           <div className="space-y-2">
@@ -156,6 +226,7 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
               value={newCard.pinyin}
               onChange={(e) => setNewCard((prev) => ({ ...prev, pinyin: e.target.value }))}
               placeholder="Nhập phiên âm pinyin..."
+              disabled={!isOnline}
             />
           </div>
           <div className="space-y-2">
@@ -165,6 +236,7 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
               value={newCard.sentence}
               onChange={(e) => setNewCard((prev) => ({ ...prev, sentence: e.target.value }))}
               placeholder="Đặt câu..."
+              disabled={!isOnline}
             />
           </div>
           <div className="space-y-2">
@@ -174,11 +246,12 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
               value={newCard.vietnamese}
               onChange={(e) => setNewCard((prev) => ({ ...prev, vietnamese: e.target.value }))}
               placeholder="Nhập nghĩa tiếng Việt..."
+              disabled={!isOnline}
             />
           </div>
-          <Button onClick={addCard} disabled={!newCard.vietnamese.trim() || !newCard.chinese.trim()} className="w-full">
+          <Button onClick={addCard} disabled={!isOnline || !newCard.vietnamese.trim() || !newCard.chinese.trim()} className="w-full">
             <Plus className="h-4 w-4 mr-2" />
-            Thêm thẻ
+            {isOnline ? "Thêm thẻ" : "Offline - Không thể thêm thẻ"}
           </Button>
         </CardContent>
       </Card>
@@ -205,6 +278,8 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
                     size="icon"
                     onClick={() => openEditModal(card)}
                     className="text-muted-foreground hover:text-primary"
+                    disabled={!isOnline}
+                    title={isOnline ? "Chỉnh sửa thẻ" : "Offline - Không thể chỉnh sửa"}
                   >
                     <Edit2 className="h-4 w-4" />
                   </Button>
@@ -215,6 +290,8 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
                         size="icon"
                         onClick={() => setCardToDelete(card)}
                         className="text-destructive hover:text-destructive"
+                        disabled={!isOnline}
+                        title={isOnline ? "Xóa thẻ" : "Offline - Không thể xóa"}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -281,6 +358,7 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
                   value={editForm.chinese}
                   onChange={(e) => setEditForm((prev) => ({ ...prev, chinese: e.target.value }))}
                   placeholder="Nhập từ tiếng Trung..."
+                  disabled={!isOnline}
                 />
               </div>
               <div className="space-y-2">
@@ -290,6 +368,7 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
                   value={editForm.pinyin}
                   onChange={(e) => setEditForm((prev) => ({ ...prev, pinyin: e.target.value }))}
                   placeholder="Nhập phiên âm pinyin..."
+                  disabled={!isOnline}
                 />
               </div>
               <div className="space-y-2">
@@ -299,6 +378,7 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
                   value={editForm.sentence}
                   onChange={(e) => setEditForm((prev) => ({ ...prev, sentence: e.target.value }))}
                   placeholder="Đặt câu..."
+                  disabled={!isOnline}
                 />
               </div>
               <div className="space-y-2">
@@ -308,6 +388,7 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
                   value={editForm.vietnamese}
                   onChange={(e) => setEditForm((prev) => ({ ...prev, vietnamese: e.target.value }))}
                   placeholder="Nhập nghĩa tiếng Việt..."
+                  disabled={!isOnline}
                 />
               </div>
               <div className="flex gap-2 justify-end">
@@ -316,7 +397,7 @@ export function CardManager({ currentList, onListChange, onClose }: CardManagerP
                 </Button>
                 <Button 
                   onClick={saveEditedCard} 
-                  disabled={!editForm.vietnamese.trim() || !editForm.chinese.trim()}
+                  disabled={!isOnline || !editForm.vietnamese.trim() || !editForm.chinese.trim()}
                 >
                   Lưu thay đổi
                 </Button>

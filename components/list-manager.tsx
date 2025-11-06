@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Plus, BookOpen, Edit2, Settings } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 export interface FlashCardData {
   id: number
@@ -26,33 +27,68 @@ interface ListManagerProps {
   onListsChange: (lists: CardList[]) => void
   onSelectList: (list: CardList) => void
   onManageCards: (list: CardList) => void
+  isOnline?: boolean
 }
 
-export function ListManager({ lists, onListsChange, onSelectList, onManageCards }: ListManagerProps) {
+export function ListManager({ lists, onListsChange, onSelectList, onManageCards, isOnline = false }: ListManagerProps) {
+  const { toast } = useToast()
   const [newListName, setNewListName] = useState("")
   const [editingListId, setEditingListId] = useState<number | null>(null)
   const [editingName, setEditingName] = useState("")
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const handleCreateList = () => {
     if (!newListName.trim()) return
 
-    const newList: CardList = {
-      id: Date.now(),
-      name: newListName.trim(),
-      cards: [],
-      createdAt: new Date(),
-    }
+    try {
+      setErrorMessage(null)
+      const newList: CardList = {
+        id: Date.now(),
+        name: newListName.trim(),
+        cards: [],
+        createdAt: new Date(),
+      }
 
-    onListsChange([...lists, newList])
-    setNewListName("")
+      onListsChange([...lists, newList])
+      setNewListName("")
+      toast({
+        title: "✅ Thành công",
+        description: "Danh sách đã được tạo và đồng bộ lên cloud",
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An error occurred"
+      setErrorMessage(message)
+      toast({
+        title: "❌ Lỗi",
+        description: message,
+        variant: "destructive",
+      })
+    }
   }
 
   const handleEditList = (listId: number, newName: string) => {
     if (!newName.trim()) return
 
-    onListsChange(lists.map((list) => (list.id === listId ? { ...list, name: newName.trim() } : list)))
-    setEditingListId(null)
-    setEditingName("")
+    try {
+      setErrorMessage(null)
+      onListsChange(lists.map((list) => (list.id === listId ? { ...list, name: newName.trim() } : list)))
+      setEditingListId(null)
+      setEditingName("")
+      toast({
+        title: "✅ Đã cập nhật",
+        description: "Tên danh sách đã được cập nhật và đồng bộ lên cloud",
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An error occurred"
+      setErrorMessage(message)
+      setEditingListId(null)
+      setEditingName("")
+      toast({
+        title: "❌ Lỗi",
+        description: message,
+        variant: "destructive",
+      })
+    }
   }
 
   const startEditing = (list: CardList) => {
@@ -66,6 +102,24 @@ export function ListManager({ lists, onListsChange, onSelectList, onManageCards 
         <h2 className="text-2xl font-bold text-card-foreground">Danh sách flashcard</h2>
       </div>
 
+      {/* Offline Notice */}
+      {!isOnline && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+            ⚠️ Chế độ offline - Chỉ có thể xem danh sách. Kết nối internet để tạo hoặc chỉnh sửa danh sách.
+          </p>
+        </div>
+      )}
+
+      {/* Error Message */}
+      {errorMessage && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <p className="text-sm text-red-800 dark:text-red-200">
+            ❌ {errorMessage}
+          </p>
+        </div>
+      )}
+
       {/* Create new list */}
       <Card>
         <CardHeader>
@@ -77,11 +131,12 @@ export function ListManager({ lists, onListsChange, onSelectList, onManageCards 
               placeholder="Tên danh sách..."
               value={newListName}
               onChange={(e) => setNewListName(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleCreateList()}
+              onKeyPress={(e) => e.key === "Enter" && isOnline && handleCreateList()}
+              disabled={!isOnline}
             />
-            <Button onClick={handleCreateList} disabled={!newListName.trim()}>
+            <Button onClick={handleCreateList} disabled={!isOnline || !newListName.trim()}>
               <Plus className="h-4 w-4 mr-2" />
-              Tạo
+              {isOnline ? "Tạo" : "Offline"}
             </Button>
           </div>
         </CardContent>
@@ -122,6 +177,8 @@ export function ListManager({ lists, onListsChange, onSelectList, onManageCards 
                           e.stopPropagation()
                           startEditing(list)
                         }}
+                        disabled={!isOnline}
+                        title={isOnline ? "Đổi tên" : "Offline - Không thể đổi tên"}
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>
